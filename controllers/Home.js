@@ -1,7 +1,11 @@
-const urlModel = require('../models/shortURLModel');
+const { urlModel } = require('../models/shortURLModel');
 const nanoid = require('nanoid');
-const validURI = require('valid-url');
 
+/* 
+    * function to verify if short-url-id is present
+    * if not then error is sent in json format
+    * else db updates are made and user is redirecte to the mapped original url
+*/
 async function redirectURL(request, response)
 {
     try
@@ -23,6 +27,11 @@ async function redirectURL(request, response)
     }
 }
 
+/* 
+    * function to generate a short-url using nanoid
+    * and storing the whole data in db
+    * then call to showHomePage
+*/
 async function createShortURL(request, response)
 {
     try
@@ -31,11 +40,11 @@ async function createShortURL(request, response)
         if(url)
         {
             let id = nanoid.nanoid(6);
-            await urlModel.create({...request.body, "id" : id});
-            return response.status(201).json({'id' : id});
+            let res = await urlModel.create({...request.body, "id" : id});
+            return showHomePage(request, response);
         }
 
-        return response.status(400).json({"error" : "InvalidURL", "message" : `Please enter a valid redirectURL in json format`});
+        return response.status(400).json({"error" : "InvalidURL", "message" : `Please enter a valid redirectURL`});
     }
     catch(error)
     {
@@ -62,4 +71,16 @@ async function getAnalytics(request, response)
     }
 }
 
-module.exports = { createShortURL, redirectURL, getAnalytics };
+/* 
+    * function to get all urls and render index page with these urls
+*/
+async function showHomePage(request, response)
+{
+    let allUrls = await urlModel.find({});
+    return response.render('index', {
+        allUrls,
+        domain : process.env.shortUrlDomain
+    });
+}
+
+module.exports = { createShortURL, redirectURL, getAnalytics, showHomePage };

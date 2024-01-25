@@ -1,6 +1,9 @@
-// custom middleware to log requests
+/******************************************************* custom middleware to log requests *******************************************************/
 
+//imports
 const fs = require('fs');
+
+
 function logRequest(fileName)
 {
     return (request, response, next) => 
@@ -14,4 +17,6 @@ function logRequest(fileName)
     }
 }
 
+
+//exports
 module.exports = logRequest;

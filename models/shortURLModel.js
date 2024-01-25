@@ -1,3 +1,4 @@
+// imports
 const mongoose = require('mongoose');
 
 const urlSchema = mongoose.Schema({
@@ -15,6 +16,32 @@ const urlSchema = mongoose.Schema({
     history : [{ time : {type : Date} }]
 });
 
-const urlModel = mongoose.model('shortURL', urlSchema);
+const userSchema = mongoose.Schema(
+    {
+        name : {
+            type : String,
+            required : true
+        },
+        email : {
+            type : String,
+            required : true,
+            unique : true
+        },
 
-module.exports = urlModel;
+        password : {
+            type : String,
+            required : true,
+            unique : true
+        }
+    }
+)
+
+const urlModel = mongoose.model('shortURL', urlSchema);
+const userModel = mongoose.model('users', userSchema);
+
+
+// exports
+module.exports = {
+    urlModel,
+    userModel
+};

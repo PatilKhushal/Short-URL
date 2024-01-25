@@ -5,4 +5,6 @@ function connectToDB(url)
     return mongoose.connect(url);
 }
 
+/* function connectRedis() */
+
 module.exports = { connectToDB };
