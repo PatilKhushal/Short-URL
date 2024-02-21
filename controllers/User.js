@@ -28,10 +28,22 @@ async function handleUserLogin(request, response){
 }
 
 
+// function that redirects user to login page after successful logout
+async function handleUserLogout(request, response){
+    request.session.destroy(err => {
+        if(err)
+            console.log(err);
+        else
+            response.redirect('/authentication/login');
+    })
+}
+
+
 // exports
 module.exports = {
     showSignupPage,
     handleUserSignup,
     showLoginPage,
-    handleUserLogin
+    handleUserLogin,
+    handleUserLogout
 };

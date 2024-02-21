@@ -1,30 +1,66 @@
-yeh rahi app.js
-const express = require('express');
-const { connectToDB } = require('./connection');
-const shortURL = require('./routes/shortURL');
-const logRequest = require('./middlewares/logRequest');
+abb iss code ko analyze karo aur pichli baar joh post diya tha na uske mutabik changes karke do ki maine abb isme authentication daali
+post mein what i learned section mein bolna types of authentication sikha, stateful ke drawbacks sikhe joh server memory par limited the issilye sesssion store ka istemaal karte handlingtoh maine bhi kiya , aaisa sab kuch
 
+yeh raha app.js
+// imports
+require('dotenv').config();
+const express = require('express');
+const logRequest = require('./middlewares/logRequest');
+const { connectToDB } = require('./connection');
+const { logRestriction } = require('./middlewares/loggingRestriction');
+const { nanoid } = require('nanoid');
+const session = require('express-session');
+const MongoStore = require('connect-mongo');
+
+const Home = require('./routes/client/Home');
+const User = require('./routes/client/User');
+const mongoStorInstance = new MongoStore({
+    mongoUrl : 'mongodb://127.0.0.1:27017/shortUrlSessionData',
+    ttl : 60 * 5,
+});
+
+mongoStorInstance.touch()
+
+// initialization
 const app = express();
-const PORT = 3000;
+
 
 // Handling Middlewares
-app.use(express.json());
-app.use(logRequest('log.txt'));
+app.use(express.urlencoded({extended : false}));
+app.use(logRequest(process.env.logFileName));
+app.use(express.static('./public'));
+app.use(
+    session(
+        {
+            genid : function()
+            {
+                return nanoid();
+            },
+            resave : false,
+            saveUninitialized : false,
+            secret: 'fq$&)CB3`~Dm\\GGOZ><[J]O52)`bGHPzSj&G|i?p~5-7n)ca+Aey&g.$mr.D.N[',
+            store : mongoStorInstance
+        }
+    )
+)
+app.set('view engine', 'ejs');
+
 
 // Connection to DB
-const dbName = 'Github'
-const dbURL = `mongodb://127.0.0.1:27017/${dbName}`;
+const dbURL = `${process.env.dbURL}/${process.env.dbName}`;
 connectToDB(dbURL)
     .then(() => console.log(`connected to ${dbURL}`))
     .catch((err) => console.log(err));
 
+
 // routes
-app.use('/', shortURL);
+app.get('/', (request, response) => {return response.redirect('/user');});
+app.use('/user', logRestriction, Home);
+app.use('/authentication', User);
+
 
 // Listening at PORT
-app.listen(PORT, () => console.log(`Listening on port ${PORT}`));
-
-
+app.listen(process.env.PORT, () => console.log(`Listening on port ${process.env.PORT}`));
 
 
 
@@ -37,24 +73,158 @@ function connectToDB(url)
     return mongoose.connect(url);
 }
 
+/* function connectRedis() */
+
 module.exports = { connectToDB };
 
 
 
+yeh raha views/index.ejs
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home</title>
+    <!-- <link rel="stylesheet" href="css/output.css"> -->
+    <link rel="stylesheet" href="css/output.css">
+</head>
+<body class="bg-black text-white">
+    <header class="flex justify-between items-center p-8 border mb-8 sticky top-0">
+        <span class="text-5xl w-max">Short My URL</span>
+        <nav class="flex justify-center border">
+            <ul class="flex gap-8 w-full">
+                <a href="#enter-url" class="p-2 border"><li>short url</li></a>
+                <a href="#analytics" class="p-2 border"><li>analytics</li></a>
+            </ul>
+        </nav>
+        <a href="/authentication/logout">
+            Logout
+        </a>
+    </header>
+    <div id="enter-url" class="form flex p-8 mb-8 justify-center">
+        <form action="" method="post" class="w-1/2 flex gap-4 flex-col items-center">
+            <input type="url" placeholder="Enter your URL" name="redirectURL" id="" class="p-2 rounded-md bg-transparent w-full border outline-none" required>
+            <button type="submit" class="p-2 rounded-md bg-transparent border">Shorten</button>
+        </form>
+    </div>
+    <div id="analytics" class="flex justify-center overflow-auto">
+        <table class="border w-full text-center table-fixed">
+            <thead>
+                <th class="text-3xl p-4 border">URL</th>
+                <th class="text-3xl p-4 border">Shortened URL</th>
+                <th class="text-3xl p-4 border">Total Clicks</th>
+            </thead>
+            <tbody>
+                <% if (locals.allUrls) { %>
+                    <% allUrls.forEach(element => { %>
+                        <tr>
+                            <td class="border p-4">
+                                <a href= <%= element.redirectURL %> target="_blank" rel="noopener noreferrer"><%= element.redirectURL %></a>
+                            </td>
+                            <td class="border p-4">
+                                <a href= <%= `${locals.domain}/${element.id}` %> target="_blank" rel="noopener noreferrer">
+                                    <%= `${locals.domain}/${element.id}` %>
+                                </a>
+                            </td>
+                            <td class="border p-4"><%= element.history.length %></td>
+                        </tr>
+                    <% }) %>
+                <% } %>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
+
+yeh raha views/login.ejs
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel="stylesheet" href="../css/output.css">
+</head>
+<body class="text-white">
+    <div id="enter-url" class="flex p-8 justify-center bg-black min-h-dvh">
+        <form method="post" action="" class="w-1/2 flex gap-4 flex-col  items-center ">
+            <input type="email" placeholder="Enter your Email Address " name="email" class="p-2 rounded-md bg-transparent w-full border outline-none" required>
+            <input type="password" placeholder="Enter your Password " name="password" class="p-2 rounded-md bg-transparent w-full border outline-none" required maxlength="16">
+            <button type="submit" class="p-2 rounded-md bg-transparent border">Login</button>
+        </form>
+    </div>
+</body>
+</html>
+
+
+
+
+
+yeh raha views/signup.ejs
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signup</title>
+    <link rel="stylesheet" href="../css/output.css">
+</head>
+<body class="text-white">
+    <div id="enter-url" class="flex p-8 justify-center bg-black min-h-dvh">
+        <form method="post" class="w-1/2 flex gap-4 flex-col  items-center ">
+            <input type="text" placeholder="Enter your Name " name="name" class="p-2 rounded-md bg-transparent w-full border outline-none" required maxlength="30">
+            <input type="email" placeholder="Enter your Email Address " name="email" class="p-2 rounded-md bg-transparent w-full border outline-none" required>
+            <input type="password" placeholder="Enter your Password " name="password" class="p-2 rounded-md bg-transparent w-full border outline-none" required maxlength="16">
+            <button type="submit" class="p-2 rounded-md bg-transparent border">Signup</button>
+        </form>
+    </div>
+</body>
+</html>
 
 
 
 
 
 
-yeh rah routes/shortURL.js
+yeh raha services/auth.js
+/* 
+    * function to create session and add attribute user with userID as values
+*/
+function createCookie(request, userID, next)
+{
+    request.session.regenerate(
+        (err) => {
+            if(err){
+                console.log(err);
+            }
+            else{
+                request.session.user = userID;
+                next();
+            }
+        }
+    )
+}
+
+module.exports = createCookie;
+
+
+
+
+
+
+
+yeh raha routes/client/Home.js
 const express = require('express');
 const Router = express.Router();
-const { createShortURL, redirectURL, getAnalytics } = require('../controllers/shortURL');
+const { createShortURL, redirectURL, getAnalytics, showHomePage } = require('../../controllers/Home');
 
-// handling POST request
-Router.post('/', createShortURL);
-Router.get('/:id', redirectURL);
+// handling requests
+Router
+    .get('/', showHomePage)
+    .post('/', createShortURL)
+    .get('/:id', redirectURL);
+
 Router.get('/analytics/:id', getAnalytics);
 
 module.exports = Router;
@@ -64,10 +234,43 @@ module.exports = Router;
 
 
 
+yeh raha routes/client/User.js
+// importing
+const express = require('express');
+const { showSignupPage, handleUserSignup, showLoginPage, handleUserLogin, handleUserLogout } = require('../../controllers/User');
+const { validateSignup } = require('../../middlewares/validateSignup');
+const { validateLogin } = require('../../middlewares/validateLogin');
+
+
+// initialization
+const Router = express.Router();
+
+
+// handling requests
+Router
+    .get('/signup', showSignupPage)
+    .post('/signup', validateSignup, handleUserSignup)
+
+
+Router
+    .get('/login', showLoginPage)
+    .post('/login', validateLogin, handleUserLogin)
+
+
+Router
+    .get('/logout', handleUserLogout)
+
+
+// exports
+module.exports = Router;
+
+
+
 
 
 
 yeh raha models/shortURLModel.js
+// imports
 const mongoose = require('mongoose');
 
 const urlSchema = mongoose.Schema({
@@ -85,23 +288,74 @@ const urlSchema = mongoose.Schema({
     history : [{ time : {type : Date} }]
 });
 
+const userSchema = mongoose.Schema(
+    {
+        name : {
+            type : String,
+            required : true
+        },
+        email : {
+            type : String,
+            required : true,
+            unique : true
+        },
+
+        password : {
+            type : String,
+            required : true,
+            unique : true
+        }
+    }
+)
+
 const urlModel = mongoose.model('shortURL', urlSchema);
-
-module.exports = urlModel;
-
+const userModel = mongoose.model('users', userSchema);
 
 
+// exports
+module.exports = {
+    urlModel,
+    userModel
+};
 
 
+
+
+
+
+yeh raha middlewares/loggingRestriction.js
+// imports 
+
+/* 
+    * function to verify if user is logged in
+    * if not will redirect to login page
+    * else will call next()
+*/
+async function logRestriction(request, response, next)
+{
+    let userID = request.session.user;
+    if(!userID)
+        return response.redirect('/authentication/login');
+    next();
+}
+
+
+// exports
+module.exports = {
+    logRestriction
+}
 
 
 
 
 
 yeh raha middlewares/logRequest.js
-// custom middleware to log requests
+/******************************************************* custom middleware to log requests *******************************************************/
 
+//imports
 const fs = require('fs');
+
+
 function logRequest(fileName)
 {
     return (request, response, next) => 
@@ -115,25 +369,100 @@ function logRequest(fileName)
     }
 }
 
+
+//exports
 module.exports = logRequest;
 
 
 
 
 
+yeh raha middlewares/validateLogin.js
+// imports
+const { userModel } = require("../models/shortURLModel");
+const createCookie = require("../services/auth");
+const bcrypt = require('bcrypt');
+
+/* 
+    * function to verfiy email exists
+    * if email not exist then will redirect to /authentication/signup
+    * if email exists then password is compared using bcrypt.compare()
+    * if password matches then cookie is created
+    * else is the same login page is rendered with error message
+*/
+async function validateLogin(request, response, next){
+    let email = request.body.email;
+    let user = await userModel.findOne({email});
+
+    if(user){
+        let res = await bcrypt.compare(request.body.password, user.password);
+        if(!res){
+            return response.render(
+                'login', {
+                        'error' : 'Invalid email or password'
+                }
+            )
+        }
+
+        createCookie(request, user._id, next);
+    }
+    else
+        response.redirect('/authentication/signup');
+}
+
+
+// exports
+module.exports = {
+    validateLogin
+}
 
 
 
 
 
 
+yeh raha middlewares/validateSignup.js
+// imports
+const { userModel } = require("../models/shortURLModel");
+const bcrypt = require('bcrypt');
+
+/* 
+    * function to verified if emailID already exists
+    * if exists then json response is sent with error and message
+    * else password is hashed and next() is called
+*/
+async function validateSignup(request, response, next){
+    let emailID = request.body.email;
+    let user = await userModel.findOne({email : emailID});
+    if(user)
+        return response.json({
+            'error' : 'DuplicateID',
+            'msg' : 'User Already exists'
+    })
+    request.body.password = await bcrypt.hash(request.body.password, 10);
+    next();
+}
 
 
-yeh raha controllers/shortURL.js
-const urlModel = require('../models/shortURLModel');
+// exports
+module.exports = {
+    validateSignup
+}
+
+
+
+
+
+
+yeh raha controllers/Home.js
+const { urlModel } = require('../models/shortURLModel');
 const nanoid = require('nanoid');
-const validURI = require('valid-url');
 
+/* 
+    * function to verify if short-url-id is present
+    * if not then error is sent in json format
+    * else db updates are made and user is redirecte to the mapped original url
+*/
 async function redirectURL(request, response)
 {
     try
@@ -155,6 +484,11 @@ async function redirectURL(request, response)
     }
 }
 
+/* 
+    * function to generate a short-url using nanoid
+    * and storing the whole data in db
+    * then call to showHomePage
+*/
 async function createShortURL(request, response)
 {
     try
@@ -163,11 +497,11 @@ async function createShortURL(request, response)
         if(url)
         {
             let id = nanoid.nanoid(6);
-            await urlModel.create({...request.body, "id" : id});
-            return response.status(201).json({'id' : id});
+            let res = await urlModel.create({...request.body, "id" : id});
+            return showHomePage(request, response);
         }
 
-        return response.status(400).json({"error" : "InvalidURL", "message" : `Please enter a valid redirectURL in json format`});
+        return response.status(400).json({"error" : "InvalidURL", "message" : `Please enter a valid redirectURL`});
     }
     catch(error)
     {
@@ -194,4 +528,71 @@ async function getAnalytics(request, response)
     }
 }
 
-module.exports = { createShortURL, redirectURL, getAnalytics };
+/* 
+    * function to get all urls and render index page with these urls
+*/
+async function showHomePage(request, response)
+{
+    let allUrls = await urlModel.find({});
+    return response.render('index', {
+        allUrls,
+        domain : process.env.shortUrlDomain
+    });
+}
+
+module.exports = { createShortURL, redirectURL, getAnalytics, showHomePage };
+
+
+
+
+
+yeh raha controllers/User.js
+// imports
+const { userModel } = require('../models/shortURLModel');
+
+
+// function to render signup page
+async function showSignupPage(request, response){
+    return response.render('signup');
+}
+
+
+// function to render login page
+async function showLoginPage(request, response){
+    return response.render('login');
+}
+
+
+/* 
+    * function that creates user after successfull signup
+*/
+async function handleUserSignup(request, response){
+    await userModel.create(request.body);
+    return response.redirect('/authentication/login');
+}
+
+// function that redirects user to home page after successfull login
+async function handleUserLogin(request, response){
+    return response.redirect('/user');
+}
+
+
+// function that redirects user to login page after successful logout
+async function handleUserLogout(request, response){
+    request.session.destroy(err => {
+        if(err)
+            console.log(err);
+        else
+            response.redirect('/authentication/login');
+    })
+}
+
+
+// exports
+module.exports = {
+    showSignupPage,
+    handleUserSignup,
+    showLoginPage,
+    handleUserLogin,
+    handleUserLogout
+};

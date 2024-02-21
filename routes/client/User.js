@@ -1,6 +1,6 @@
 // importing
 const express = require('express');
-const { showSignupPage, handleUserSignup, showLoginPage, handleUserLogin } = require('../../controllers/User');
+const { showSignupPage, handleUserSignup, showLoginPage, handleUserLogin, handleUserLogout } = require('../../controllers/User');
 const { validateSignup } = require('../../middlewares/validateSignup');
 const { validateLogin } = require('../../middlewares/validateLogin');
 
@@ -18,6 +18,10 @@ Router
 Router
     .get('/login', showLoginPage)
     .post('/login', validateLogin, handleUserLogin)
+
+
+Router
+    .get('/logout', handleUserLogout)
 
 
 // exports

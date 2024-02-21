@@ -6,10 +6,16 @@ const { connectToDB } = require('./connection');
 const { logRestriction } = require('./middlewares/loggingRestriction');
 const { nanoid } = require('nanoid');
 const session = require('express-session');
+const MongoStore = require('connect-mongo');
 
 const Home = require('./routes/client/Home');
 const User = require('./routes/client/User');
+const mongoStorInstance = new MongoStore({
+    mongoUrl : 'mongodb://127.0.0.1:27017/shortUrlSessionData',
+    ttl : 60 * 5,
+});
 
+mongoStorInstance.touch()
 
 // initialization
 const app = express();
@@ -26,7 +32,10 @@ app.use(
             {
                 return nanoid();
             },
+            resave : false,
+            saveUninitialized : false,
             secret: 'fq$&)CB3`~Dm\\GGOZ><[J]O52)`bGHPzSj&G|i?p~5-7n)ca+Aey&g.$mr.D.N[',
+            store : mongoStorInstance
         }
     )
 )
